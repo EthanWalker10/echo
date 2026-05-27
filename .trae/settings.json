@@ -1,0 +1,13 @@
+{
+  "trae.rules.autoLoad": true,
+  "trae.ai.codeIndex.enabled": true,
+  "trae.ai.codeIndex.autoBuild": true,
+  "files.watcherExclude": {
+    "**/__pycache__/**": true,
+    "**/.git/**": true,
+    "**/data/**": true,
+    "**/*.wav": true,
+    "**/*.mp3": true,
+    "**/.venv/**": true
+  }
+}

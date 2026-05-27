@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "echo"
+version = "0.1.0"
+description = ""
+authors = ["wudi10 <NorwichSnower@proton.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+google-generativeai = "^0.8.6"
+edge-tts = "^7.2.8"
+sounddevice = "^0.5.5"
+scipy = "^1.17.1"
+python-dotenv = "^1.2.2"
+rich = "^15.0.0"
+pygame = "^2.6.1"
+numpy = "^2.4.6"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.3"
+pytest-asyncio = "^1.4.0"
+pytest-mock = "^3.15.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
