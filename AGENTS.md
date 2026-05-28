@@ -11,7 +11,7 @@ AI-native voice-based English technical interview assistant.
 ## Stack
 - Python 3.11
 - Package Manager: Poetry
-- Gemini gemini-3.1-flash-lite API (Multimodal Audio Input & LLM Core)
+- Gemini gemini-3.5-flash API (Multimodal Audio Input & LLM Core)
 - Edge-TTS (TTS)
 - Local JSON storage
 
