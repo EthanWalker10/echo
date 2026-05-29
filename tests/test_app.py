@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock, ANY
+from unittest.mock import patch, MagicMock, AsyncMock
 import os
 import json
 
@@ -23,11 +23,9 @@ async def test_record_audio(mock_concatenate, mock_write, mock_input_stream, moc
     mock_write.assert_called_once()
 
 @pytest.mark.asyncio
+@patch('app.read_json', new_callable=AsyncMock)
 @patch('app.asyncio.to_thread', new_callable=AsyncMock)
-async def test_chat_with_gemini(mock_to_thread):
-    # 【核心改动 1】显式 Mock 掉 app.client，防止因为没有环境变量而抛出 ValueError
-    app.client = MagicMock()
-    
+async def test_chat_with_gemini(mock_to_thread, mock_read_json):
     mock_file = MagicMock()
     mock_file.name = "mock_file_name"
     
@@ -36,30 +34,63 @@ async def test_chat_with_gemini(mock_to_thread):
         "corrected_sentence": "I am good.",
         "grammar_mistakes": ["None"],
         "fluency_score": 9.5,
+        "tech_correctness_score": 10.0,
+        "tech_feedback": "Perfect.",
+        "identified_weak_grammar": [],
+        "identified_weak_topics": [],
+        "identified_weak_tech_concepts": ["Python"],
+        "identified_topics_discussed": ["General"],
+        "identified_vocab_mistakes": [],
+        "resolved_weak_tech_concepts": [],
+        "resolved_weak_grammar": [],
         "next_question": "What is Python?"
     })
     
-    # 模拟三个链式调用的返回值
     mock_to_thread.side_effect = [
-        mock_file,       # 1. client.files.upload 的返回
-        mock_response,   # 2. client.models.generate_content 的返回
-        None             # 3. client.files.delete 的返回
+        mock_file,       # upload_file
+        mock_response,   # generate_content
+        None             # delete_file
     ]
     
-    # 执行被测函数
+    mock_read_json.return_value = {}
+    
+    # We must ensure app.client is not None. 
+    app.client = MagicMock()
+    
     result = await app.chat_with_gemini("dummy.wav")
     
-    # 验证返回结果
     assert result["corrected_sentence"] == "I am good."
     assert result["fluency_score"] == 9.5
+    assert result["tech_correctness_score"] == 10.0
     assert result["next_question"] == "What is Python?"
     assert mock_to_thread.call_count == 3
+
+@pytest.mark.asyncio
+@patch('app.read_json', new_callable=AsyncMock)
+@patch('app.write_json', new_callable=AsyncMock)
+async def test_update_memory_background(mock_write_json, mock_read_json):
+    mock_read_json.side_effect = [
+        {"fluency_average": 5.0, "total_rounds": 1},  # metrics
+        {"weak_grammar": ["article misuse", "old grammar"], "weak_topics": [], "weak_tech_concepts": ["GIL", "old tech"], "topics_discussed": [], "common_vocab_mistakes": {}, "fluency_average": 5.0, "mastered_grammar": [], "mastered_tech_concepts": []}, # compressed
+        [{"user_said": "Old", "assistant_asked": "Old Q"}] # session
+    ]
     
-    # 【核心改动 2】严格验证 asyncio.to_thread 调用的目标函数是否已经切换为新版 SDK
-    call_args = mock_to_thread.call_args_list
-    assert call_args[0][0][0] == app.client.files.upload            # 第一次应该调用上传
-    assert call_args[1][0][0] == app.client.models.generate_content # 第二次应该调用生成
-    assert call_args[2][0][0] == app.client.files.delete            # 第三次应该调用删除
+    data = {
+        "fluency_score": 9.0,
+        "identified_weak_grammar": ["new grammar"],
+        "identified_weak_topics": ["k8s"],
+        "identified_weak_tech_concepts": ["new tech"],
+        "identified_topics_discussed": ["threading"],
+        "identified_vocab_mistakes": [{"wrong_phrase": "big traffic", "correct_phrase": "high throughput"}],
+        "resolved_weak_grammar": ["article misuse"],
+        "resolved_weak_tech_concepts": ["GIL"],
+        "corrected_sentence": "New",
+        "next_question": "New Q"
+    }
+    
+    await app.update_memory_background(data)
+    
+    assert mock_write_json.call_count == 3
 
 @pytest.mark.asyncio
 @patch('app.edge_tts.Communicate')
@@ -89,6 +120,8 @@ def test_render_ui(capsys):
         "corrected_sentence": "I am a software engineer.",
         "grammar_mistakes": ["Missing article 'a'"],
         "fluency_score": 8.0,
+        "tech_correctness_score": 9.0,
+        "tech_feedback": "Good job.",
         "next_question": "Explain async/await."
     }
     app.render_ui(data)
@@ -100,5 +133,9 @@ def test_render_ui(capsys):
     assert "Missing article 'a'" in captured.out
     assert "Fluency Score" in captured.out
     assert "8.0/10" in captured.out
+    assert "Tech Correctness Score" in captured.out
+    assert "9.0/10" in captured.out
+    assert "Tech Feedback" in captured.out
+    assert "Good job." in captured.out
     assert "Next Question" in captured.out
     assert "Explain async/await." in captured.out
